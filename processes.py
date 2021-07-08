@@ -1,3 +1,5 @@
+#Useful alignment processes and subprocesses called from alignment.py
+
 from pydmm.pydmm import read_dmm
 import math
 
