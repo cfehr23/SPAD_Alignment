@@ -1,4 +1,6 @@
 
+#Main file and algorithm for SPAD alignment
+
 from pylablib.devices import Thorlabs
 import math
 
