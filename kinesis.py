@@ -1,3 +1,7 @@
+#Interface with Thorlabs translation stages
+#Includes class to create stage instances, define useful stage attributes,
+#and methods
+
 from ...core.devio import interface, comm_backend
 from ...core.utils import general, funcargparse, py3
 from .base import ThorlabsError, ThorlabsTimeoutError, ThorlabsBackendError
