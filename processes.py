@@ -52,8 +52,7 @@ def check(current, caliFact):
 #Returns True if sufficient signal found, or the percentage of the scan area
 #covered otherwise
 
-def spiralTrnslt(ID, step, limit, pstvDir, percent, percentInc, current,\
- sigFact):
+def spiralTrnslt(ID, step, limit, pstvDir, percent, percentInc, current, sigFact):
 
     #Checks if direction movement along current axis is positive
     if not pstvDir:
@@ -62,7 +61,7 @@ def spiralTrnslt(ID, step, limit, pstvDir, percent, percentInc, current,\
         step *= -1
 
     #Takes number of coarse steps based on cycle count
-    for stepNum in range (1, limit+1):
+    for stepNum in range(1, limit+1):
 
         #Checks if sufficient signal is found to begin multi-axis alignment
         if check(current, sigFact):
@@ -201,7 +200,7 @@ def optimizeC(ID, stepC, threshFact, limit):
             if forward:
 
                 #Sets positive boundary to current position
-                posEdge1 =  s[ID%3].posCur
+                posEdge1 = s[ID%3].posCur
 
                 #updates current position
                 s[ID%3].posCur = s[ID%3].pos1-stepC*34.304
@@ -214,7 +213,7 @@ def optimizeC(ID, stepC, threshFact, limit):
 
                 #Moves to a single coarse step in the negative direction from
                 #the optimization starting position
-                s[ID%3]._move_to(if s[ID%3].posCur)
+                s[ID%3]._move_to(s[ID%3].posCur)
 
                 #Sets the scanning direction to backwards
                 forward = False
@@ -265,7 +264,7 @@ def optimizeC(ID, stepC, threshFact, limit):
 
             #Searches through second list of location-reading pairs to find true
             #positve boundary
-            for index in range(0, len(l2))
+            for index in range(0, len(l2)):
 
                 if l2[index][1] <= max*threshFact:
 
@@ -382,7 +381,7 @@ def optimizeF(ID, stepC, threshFact, minRes):
             stepTemp = step
 
             #Change incrementation/decrementation mode
-            num  = 1
+            num = 1
 
     #Sets fine optimized position along axis to average of boundary positions
     #(must be centered)
