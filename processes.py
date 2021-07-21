@@ -2,6 +2,7 @@
 
 from pydmm.pydmm import read_dmm
 import math
+import sys
 
 #_______________________________________________________________________________
 
@@ -40,9 +41,72 @@ def check(current, caliFact):
     else:
         return False
 
+    #_______________________________________________________________________________
+
+    def plnrScan(stepC, cycleStop, darkCur, sigFact):
+        
+        #value for stage selection (index of stage in list)
+        ID = 0
+        
+        #Compute number of incremental moves possible
+        moves = cycleStop*(cycleStop+2)
+        
+        #Initial percentage of total scan area traversed
+        percent = 0
+     
+        #Percentage increment with each step
+        percentInc = 1/moves
+        
+        print("Initiating planar scan for adequate signal")
+
+        print("Scanning area traversed:" + str(percent) + "%")
+    
+        #Scan area in spiral pattern (for all complete cycles)
+        for cycle in range(1, cycleStop+1):
+            
+             #Scan along x and y axes for each cycle
+             for count in range(1, 3):
+                
+                percent = spiralTrnslt(ID, stepC, cycle, cycle%2, percent, percentInc, darkCur, sigFact) 
+                
+                #Checks if sufficient signal is found to begin multi-axis alignment
+                if percent is True:
+                    return
+                
+                #Toggle stage/axis of movement
+                ID += 1
+                
+            percent = spiralTrnslt(ID, stepC, cycleStop, not cycleStop%2, percent, percentInc, darkCur, sigFact)
+            
+            #Checks if sufficient signal  to begin multi-axis alignment was not found
+            #(during last half cycle)
+            if percent is not True:
+                
+                #Checks if sufficient signal  to begin multi-axis alignment was not found
+                #(at endpoint of scan)
+                if not check(darkCur, sigFact):
+
+                    #alert for user
+                    print("Could not locate signal: Realignment required")
+                    sys.exit()
+
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
 #_______________________________________________________________________________
 
-#Perform sets of x and y translations for spiral scan
+#Perform sets of x and y translations for planar scan
 
 #Parameters: Index of stage to be translated, coarse step size, boolean
 #indicating direction of movement along axis, current percent of scan area
