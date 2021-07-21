@@ -8,22 +8,27 @@ import math
 import threading
 # from processes import spiralTrnslt
 
-def IButton(*args, **kwargs):
-    return sg.Col([[sg.Button(*args, **kwargs)]], pad=(0,0))
 
-#temp
+# def IButton(*args, **kwargs):
+#     return sg.Col([[sg.Button(*args, **kwargs)]], pad=(0,0))
+
+
+# temp
 def check(current, caliFact):
     read = read_dmm()
-    
+
     if(read/current>=caliFact):
         return True
     else:
         return False
-#temp
+
+# temp
 def read_dmm():
     return 1
-#temp
-def spiralTrnslt(ID, step, limit, pstvDir, percent, percentInc, current, sigFact, s):
+
+# temp
+def spiralTrnslt(ID, step, limit, pstvDir, percent, percentInc, current, sigFact, s, window):
+    #COLE I updated this to update the UI as well
 
     #Checks if direction movement along current axis is positive
     if not pstvDir:
@@ -48,7 +53,9 @@ def spiralTrnslt(ID, step, limit, pstvDir, percent, percentInc, current, sigFact
         #Increment percent of area scanned
         percent += percentInc
 
-        print("Scanning area traversed:" + str(percent) + "%")
+        #print every 10 steps`
+        if stepNum%10 == 0:
+            window["-PROGRESS-"]("Scanning area traversed: %s %%"%percent)
 
     #Percentage of scanning area covered
     return percent
@@ -78,6 +85,8 @@ class AlignmentUI:
 
     def win_init(self):
         """
+        The UI that allows the user to input constant values that define
+        the scan process
         """
 
         # Initialization text
@@ -171,6 +180,7 @@ class AlignmentUI:
 
     def win_manual_alignment(self):
         """
+        Prompt user to manually align stage until they are satisfied
         """
 
         txt1 = "Manually align with DUT - Press any key to initiate calibration"
@@ -179,8 +189,9 @@ class AlignmentUI:
         calibrate_txt2 = "Open shutter/unblock laser - press enter once complete\n"+\
                          "Measured dark current for DUT is "  #+ str(darkCur)
 
+        # list for cycling between three text segments
         txts = [txt1, calibrate_txt1, txt2]
-        txt_i = 0
+        txt_i = 0  # index for the cycling
 
         # UI layout
         layout = [
@@ -191,7 +202,7 @@ class AlignmentUI:
             [sg.Button("Ok", key="-OK-")]
         ]
 
-        # Initialize the new window
+        # Initialize the new window. Include keyboard events to detect key press
         window = sg.Window("SPAD Alignment", layout, return_keyboard_events=True)
 
         # Event loop
@@ -221,16 +232,20 @@ class AlignmentUI:
                     window["-REDO-"].update(visible=True)
                     window["-NEXT-"].update(visible=True)
                     window["-OK-"].update(visible=False)
-
+            # redo manual alignment
             if event == "-REDO-":
                 window.close()
                 return 0
+            # move on to the next step
             elif event == "-NEXT-":
                 window.close()
                 return 1
 
     def win_planar_scan(self, s):
-        #value for stage selection (index of stage in list)
+        """
+        """
+
+        # Initial value for stage slection
         ID = 0
 
         #Compute number of complete x & y translation sets possible
@@ -246,16 +261,21 @@ class AlignmentUI:
         percentInc = 1/moves
 
         #text describing the current scan percent
-        percent_text = "Scanning are traversed: %s %%"
+        percent_text = "Scanning area traversed: %s %%"
 
         # UI layout
         layout = [
-            [sg.Text("Planar Scan Running")],
-            [sg.Text(percent_text%(str(percent)), key="-PERCENT-")]
+            [sg.Text("Planar scan running...")],
+            [sg.Text(percent_text%(str(percent)), key="-PROGRESS-")]
         ]
 
         # Initialize the new window
         window = sg.Window("SPAD Alignment", layout)
+
+        # The thread to keep up the UI while other processes are running.
+        #  The function needs to be nested if using the global variable to
+        #  kill the thread
+        stop_thread = False
 
         def UI_thread():
             # Event loop
@@ -268,13 +288,13 @@ class AlignmentUI:
                     window.close()
                     sys.exit()  # closes the entire application
 
-                # using a global variable to kill the thread
+                # uses a global variable to kill the thread
                 if stop_thread:
+                    window.close()
                     break
 
         # Threading to ensure the UI can still be interacted with during the
         #  following processing steps
-        stop_thread = False
         UI_thread = threading.Thread(target=UI_thread)
         UI_thread.start()
 
@@ -286,9 +306,11 @@ class AlignmentUI:
 
                 #Perform intermediate translations/steps
                 temp_percent = spiralTrnslt(ID, self.stepC, cycle, True, percent, percentInc,
-                                            self.darkCur, self.sigFact, s)
+                                            self.darkCur, self.sigFact, s, window)
 
-                window["-PERCENT-"](percent_text%(str(temp_percent)))
+                #update the window text with the new scan percent
+                window["-PROGRESS-"](percent_text%(str(temp_percent)))  ### COLE
+                # ^ is this necessary if this is updated in the spiralTrnslt function itself?
 
                 #Checks if sufficient signal is found to begin multi-axis alignment
                 if temp_percent:
@@ -306,16 +328,14 @@ class AlignmentUI:
 
         #Perform intermediate translations/steps (for half cycle)
         temp_percent = spiralTrnslt(ID, self.stepC, cycleStop, not cycleStop%2, percent,
-                                    percentInc, self.darkCur, self.sigFact, s)
+                                    percentInc, self.darkCur, self.sigFact, s, window)
 
-        #stops the thread
+        #stops the thread, as scan is complete
         stop_thread = True
         UI_thread.join()
 
-        #Checks if sufficient signal  to begin multi-axis alignment was not found
-        #(during last half cycle)
-        #Checks if sufficient signal  to begin multi-axis alignment was not found
-        #(at endpoint of scan)
+        #Checks if sufficient signal to begin multi-axis alignment was not found
+        #(during last half cycle) and (at endpoint of scan)
         if not temp_percent and not check(self.darkcur, self.sigFact):
             #alert for user
             sg.popup("Could not locate signal: Realignment required",
@@ -323,7 +343,202 @@ class AlignmentUI:
             #return to the alignment step
             return 0
         #proceed
+        sg.popup('Planar scan complete. Press "ok" to move onto multi-axis scan',
+                 title="Planar scan complete")
+
         return 1
+
+    def win_multi_axis_scan(self, s):
+        """
+        Performs a multi-axis scan (coarse scan)
+        """
+
+        # Initial value for stage selection
+        ID = 0
+
+        #Scan type to be performed
+        coarseScan = True
+
+        #Assign names for each axis/stage
+        s[0].name = "x"
+        s[1].name = "y"
+        s[2].name = "z"
+
+        #Set initial position for comparison to current position for each axis
+        s[0].pos1 = s[0].posCur
+        s[1].pos1 = s[1].posCur
+        s[2].pos1 = self.centPos
+
+        #Set initial optimization status for each axis to False (not optimized)
+        s[0].status = s[1].status = s[2].status = False
+
+        # text that displays which axis is being optimized
+        optimize_text = "Optimizing %s"
+
+        # UI layout
+        layout = [
+            [sg.Text("Multi-axis scan running...")],
+            [sg.Text("", key="-OPTIMIZE-")],
+        ]
+
+        # Initialize the new window
+        window = sg.Window("SPAD Alignment", layout)
+
+        # The thread to keep up the UI while other processes are running.
+        #  The function needs to be nested if using the global variable to
+        #  kill the thread
+        stop_thread = False
+
+        def UI_thread():
+            # Event loop
+            while True:
+                # Get the events and input values
+                event, values = window.read()
+
+                # If the user closes the window, break out of the loop
+                if event == sg.WIN_CLOSED or event == 'Exit':
+                    window.close()
+                    sys.exit()  # closes the entire application
+
+                # uses a global variable to kill the thread
+                if stop_thread:
+                    window.close()
+                    break
+
+        # Threading to ensure the UI can still be interacted with during the
+        #  following processing steps
+        UI_thread = threading.Thread(target=UI_thread)
+        UI_thread.start()
+
+        #Loop that continues until all axes are optimized according to coarse step
+        while coarseScan:
+            #Informs user of the current axis being optimized
+            window["-OPTIMIZE-"](optimize_text%(str(s[ID%3].name)))
+
+            #Checks if number of optimization cycles exceeds limit for convergence
+            if(ID > self.opt):
+
+                #Terminate coarse scan process
+                break
+
+            #Attempt to optimize a given axis
+            if not optimizeC(ID, self.stepC, self.threshFact, self.stepLim):
+
+                #Terminate coarse scan process
+                break
+
+            #Check if position along axis after optimization is within single
+            #coarse step of initial position
+            if abs(s[ID%3].pos2-s[ID%3].pos1) <= self.stepC:
+
+                #Set previous position for comparion to new  position along axis
+                #determined by optimization
+                s[ID%3].pos1 = s[ID%3].pos2
+
+                # current axis optimized (individually). No popup
+                print(str(s[ID%3].name + " passes"))
+
+                #Update status of axis to indicate a pass
+                s[ID%3].status = True
+
+                #Check if all axes are omptimized
+                if all([obj.status for obj in s]):
+
+                    #Change scan state
+                    coarseScan = False
+
+                    print()
+
+                    #Signify start of fine scan process
+                    sg.popup('All axes passed - Press "ok" to proceed '
+                             'to the fine Scan Process', title="Multi-Axis Scan Complete")
+                    #stops the thread, as scan is complete
+                    stop_thread = True
+                    UI_thread.join()
+
+                    return 1
+
+            else:
+
+                #Set previous position for comparion to new position along axis
+                #determined by optimization
+                s[ID%3].pos1 = s[ID%3].pos2
+
+                #Current axis was not optimized (individually)
+                sg.popup(str(s[ID%3].name + " fails - resetting all axes"))
+
+                #Reset all axes to non-optimized state
+                s[0].status = s[1].status = s[2].status = False
+
+            #Increment index to optimize next stage (round robin order)
+            ID += 1
+
+        #Check if termination occurence does not correspond to switching scan types
+        if coarseScan:
+
+            if s[ID%3].posCur <=0 or s[ID%3].posCur >= 857600:  ### COLE
+
+                #stops the thread, as scan is complete
+                stop_thread = True
+                UI_thread.join()
+
+                #Display Realignment message to user
+                print("Stage limit reached - manual Realignment required")
+                return 0
+
+                #Display paremeter selection message to user
+                print("Not converging to position - Change parameter choice")
+                return 0
+
+    def win_fine_scan(self, s):
+        """
+        """
+
+        # text that displays which axis is being optimized
+        optimize_text = "Optimizing %s"
+
+        # UI layout
+        layout = [
+            [sg.Text("Multi-axis fine scan running...")],
+            [sg.Text("", key="-OPTIMIZE-")],
+        ]
+
+        # Initialize the new window
+        window = sg.Window("SPAD Alignment", layout)
+
+        # The thread to keep up the UI while other processes are running.
+        #  The function needs to be nested if using the global variable to
+        #  kill the thread
+        stop_thread = False
+
+        def UI_thread():
+            # Event loop
+            while True:
+                # Get the events and input values
+                event, values = window.read()
+
+                # If the user closes the window, break out of the loop
+                if event == sg.WIN_CLOSED or event == 'Exit':
+                    window.close()
+                    sys.exit()  # closes the entire application
+
+                # uses a global variable to kill the thread
+                if stop_thread:
+                    window.close()
+                    break
+
+        # Threading to ensure the UI can still be interacted with during the
+        #  following processing steps
+        UI_thread = threading.Thread(target=UI_thread)
+        UI_thread.start()
+
+        for ID in range(3):
+            #Informs user of the current axis being optimized
+            window["-OPTIMIZE-"](optimize_text%(str(s[ID].name)))
+
+            optimizeF(ID, step, self.threshFact, self.minRes)
+
+        sg.popup("Alignment process successfully completed")
 
     # def win_manual_alignment(self):
     #     # UI layout
@@ -345,29 +560,31 @@ class AlignmentUI:
     #           sys.exit()  # closes the entire application
 
 
-def um():
+def main():
     UI = AlignmentUI()
-    #UI.win_init()
+    UI.win_init()
 
     #Serial numbers for x, y, z translation stages (to be set based on recieved
     #stages)
-    # serX =
-    # serY =
-    # serZ =
+    serX =
+    serY =
+    serZ =
 
     # Initialize list to store actuator/stage instances
     s = []
 
     #Configure stages and store in list for access
-    # stageX = Thorlabs.KinesisMotor(serX)
-    # s.append(stageX)
+    stageX = Thorlabs.KinesisMotor(serX)
+    s.append(stageX)
 
-    # stageY = Thorlabs.KinesisMotor(serY)
-    # s.append(stageY)
+    stageY = Thorlabs.KinesisMotor(serY)
+    s.append(stageY)
 
-    # stageZ = Thorlabs.KinesisMotor(serZ)
-    # s.append(stageZ)
+    stageZ = Thorlabs.KinesisMotor(serZ)
+    s.append(stageZ)
 
+    # The loop is here so that the user can choose to realign without
+    #  resetting the entire program
     aligning = True
     while aligning:
         #Ensure that all stages are centred prior to alignment
@@ -376,21 +593,25 @@ def um():
 
         #Prompt user to manually align stage until they are satisfied or decide to
         #end entire process
-        # while True:
-        #     # if False, redo alignment
-        #     if UI.win_manual_alignment():
-        #         break
+        while True:
+            # if False, redo alignment
+            if UI.win_manual_alignment():
+                break
 
-        #value for stage selection (index of stage in list)
-        ID = 0
-
+        # Start the planar scan
         if not UI.win_planar_scan(s):
-            aligning = False
+            # if scan fails, go back to manual alignment
+            continue
 
-    #Initiate Multi-Axis Scan (Coarse Scan)
+        # Start the Multi-Axis scan (Coarse Scan)
+        if not UI.win_multi_axis_scan(s):
+            # if scan fails, go back to manual alignment
+            continue
 
+    # Proceed with Multi-Axis Scan (fine optimization)
+    UI.win_fine_scan(s)
 
+    #complete
 
-
-
-um()
+if __name__ in "__main__":
+    main()
