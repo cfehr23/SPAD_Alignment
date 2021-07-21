@@ -10,14 +10,14 @@ import math
 sigFact = input("Enter noise exceedance factor for measurement comparison\
 (recommended value: 2)")
 
-#Dimensions of the planar scan area [mm]
+#Dimensions of the planar scan area [millimetres]
 dim = 24.984
 
 #Absolute center position of a stage [encoder counts]
 centPos = 428800
 
-#Coarse step size for scan and alignment processes [um]
-stepC = input("Enter coarse step size (um) for incremental movements\
+#Coarse step size for scan and alignment processes [micrometres]
+stepC = input("Enter coarse step size (\u03BC" + "m) for incremental movements\
  (recommended values:)")
 
 #Limit that controls maximum number of steps in certain direction for
@@ -31,9 +31,9 @@ opt = input("Enter cycle count limit for multi-axis optimization\
 
 #Threshold factor to define appropriate decline in photocurrent during alignment
 threshFact = input("Enter relative intensity factor to set as device\
- photocurrent threshhold (recommended value: 0.9)")
+ photocurrent threshold (recommended value: 0.9)")
 
-#Minimum resolution for actuators (defined limit for (actuator name) ) [um]
+#Minimum resolution for actuators (defined limit for (actuator name) ) [micrometres]
 minRes = 0.05
 #_______________________________________________________________________________
 
