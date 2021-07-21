@@ -98,62 +98,11 @@ while prompt:
 #Initiate Planar Scan
 #_______________________________________________________________________________
 
-#value for stage selection (index of stage in list)
-ID = 0
-
 #Compute number of complete x & y translation sets possible
 cycleStop = 2*math.floor(dim/(2*stepC))
 
-#Compute number of incremental moves possible
-moves = cycleStop*(cycleStop+2)
 
-#Initial percentage of total scan area traversed
-percent = 0
-
-#Percentage increment with each step
-percentInc = 1/moves
-
-print("Initiating planar scan for adequate signal")
-
-print("Scanning area traversed:" + str(percent) + "%")
-
-#Scan area in spiral pattern (for all complete cycles)
-for cycle in range(1, cycleStop+1):
-
-    #Scan along x and y axes for each cycle
-    for count in range(1, 3):
-
-        #Perform intermediate translations/steps
-        temp = spiralTrnslt(ID, stepC, cycle, True, percent, percentInc, darkCur, sigFact)
-
-        #Checks if sufficient signal is found to begin multi-axis alignment
-        if temp is True:
-            break
-
-        #Store percentage of scanning region covered so far
-        percent = temp
-
-        #Toggle stage/axis of movement
-        ID += 1
-
-    #Checks if sufficient signal is found to begin multi-axis alignment
-    if temp is True:
-        break
-
-#Perform intermediate translations/steps (for half cycle)
-temp = spiralTrnslt(ID, stepC, cycleStop, not cycleStop%2, percent, percentInc, darkCur, sigFact)
-
-#Checks if sufficient signal  to begin multi-axis alignment was not found
-#(during last half cycle)
-if temp is not True:
-
-    #Checks if sufficient signal  to begin multi-axis alignment was not found
-    #(at endpoint of scan)
-    if not check(darkCur, sigFact):
-
-        #alert for user
-        print("Could not locate signal: Realignment required")
-        end()
+plnrScan(stepC, cycleStop, darkCur, sigFact):
 
 
 #Initiate Multi-Axis Scan (Coarse Scan)
