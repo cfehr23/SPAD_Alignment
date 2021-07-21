@@ -124,8 +124,7 @@ for cycle in range(1, cycleStop+1):
     for count in range(1, 3):
 
         #Perform intermediate translations/steps
-        temp = spiralTrnslt(ID, stepC, cycle, True, percent, percentInc,\
-         darkCur, sigFact)
+        temp = spiralTrnslt(ID, stepC, cycle, True, percent, percentInc, darkCur, sigFact)
 
         #Checks if sufficient signal is found to begin multi-axis alignment
         if temp is True:
@@ -142,8 +141,7 @@ for cycle in range(1, cycleStop+1):
         break
 
 #Perform intermediate translations/steps (for half cycle)
-temp = spiralTrnslt(ID, stepC, cycleStop, not cycleStop%2, percent,\
- percentInc, darkCur, sigFact)
+temp = spiralTrnslt(ID, stepC, cycleStop, not cycleStop%2, percent, percentInc, darkCur, sigFact)
 
 #Checks if sufficient signal  to begin multi-axis alignment was not found
 #(during last half cycle)
@@ -151,7 +149,7 @@ if temp is not True:
 
     #Checks if sufficient signal  to begin multi-axis alignment was not found
     #(at endpoint of scan)
-    if not check(darkcur, sigFact):
+    if not check(darkCur, sigFact):
 
         #alert for user
         print("Could not locate signal: Realignment required")
@@ -217,15 +215,13 @@ while coarseScan:
         s[ID%3].status = True
 
         #Check if all axes are omptimized
-        if s[0].status = True && s[1].status == True && s[2].status == True:
+        if s[0].status && s[1].status && s[2].status:
 
             #Change scan state
             coarseScan = False
 
-            print()
-
             #Signify start of fine scan process
-            print("All axes passed - Initiating Fine Scan Process")
+            print("\nAll axes passed - Initiating Fine Scan Process")
 
     else:
 
