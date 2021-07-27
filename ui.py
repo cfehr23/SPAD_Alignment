@@ -9,8 +9,8 @@ import threading
 # from processes import spiralTrnslt
 
 
-# def IButton(*args, **kwargs):
-#     return sg.Col([[sg.Button(*args, **kwargs)]], pad=(0,0))
+def IButton(*args, **kwargs):
+    return sg.Col([[sg.Button(*args, **kwargs)]], pad=(0,0))
 
 
 # temp
@@ -70,18 +70,11 @@ class AlignmentUI:
 
         self.darkCur = None
 
-        # self.sigFact = ''
-        # self.stepC = ''
-        # self.stepLim = ''
-        # self.opt = ''
-        # self.threshFact = ''
-
-        #TEMPORARY
-        self.sigFact = 1
-        self.stepC = 1
-        self.stepLim = 1
-        self.opt = 1
-        self.threshFact = 1
+        self.sigFact = ''
+        self.stepC = ''
+        self.stepLim = ''
+        self.opt = ''
+        self.threshFact = ''
 
     def win_init(self):
         """
@@ -97,16 +90,15 @@ class AlignmentUI:
         threshFact_text = "Photocurrent threshold [%] (recommended value: 0.9)"
 
         info_text = """
-        Noise exceedance factor: Factor to compare device dark current to\
-         measured signal current
+Noise exceedance factor: Factor to compare device dark current to\
+ measured signal current
         \nCoarse step size: for incremental movements in the scan and alignment process
         \nStep limit: Controls maximum number of steps in certain direction for\
-         single-axis optimization
+ single-axis optimization
         \nCycle count limit: Controls the number of optimization cylces for\
-         multi-axis Realignment
+ multi-axis Realignment
         \nPhotocurrent threshold: Factor to define appropriate decline in\
-         photocurrent during alignment
-        """  # Maybe add more info here?
+ photocurrent during alignment"""  # Maybe add more info here?
 
         # UI layout
         layout = [
@@ -147,8 +139,7 @@ class AlignmentUI:
                 err_msgs = []
                 err = False
                 # checks if all the values are numbers
-                for key in values:
-                    value = values[key]
+                for key, value in values.items():
                     try:
                         float(value)
                         #check if the photocurrent threshold is an acceptable percentage
@@ -412,14 +403,21 @@ class AlignmentUI:
 
         #Loop that continues until all axes are optimized according to coarse step
         while coarseScan:
+            ID_i = ID%3
             #Informs user of the current axis being optimized
-            window["-OPTIMIZE-"](optimize_text%(str(s[ID%3].name)))
+            window["-OPTIMIZE-"](optimize_text%(str(s[ID_i].name)))
 
             #Checks if number of optimization cycles exceeds limit for convergence
             if(ID > self.opt):
+                #stops the thread, as scan is complete
+                stop_thread = True
+                UI_thread.join()
 
                 #Terminate coarse scan process
-                break
+                #Display paremeter selection message to user
+                print("Not converging to position - Change parameter choice")
+
+                return 0
 
             #Attempt to optimize a given axis
             if not optimizeC(ID, self.stepC, self.threshFact, self.stepLim):
@@ -429,14 +427,14 @@ class AlignmentUI:
 
             #Check if position along axis after optimization is within single
             #coarse step of initial position
-            if abs(s[ID%3].pos2-s[ID%3].pos1) <= self.stepC:
+            if abs(s[ID_i].pos2-s[ID_i].pos1) <= self.stepC:
 
                 #Set previous position for comparion to new  position along axis
                 #determined by optimization
-                s[ID%3].pos1 = s[ID%3].pos2
+                s[ID%3].pos1 = s[ID_i].pos2
 
                 # current axis optimized (individually). No popup
-                print(str(s[ID%3].name + " passes"))
+                print(str(s[ID_i].name + " passes"))
 
                 #Update status of axis to indicate a pass
                 s[ID%3].status = True
@@ -462,33 +460,16 @@ class AlignmentUI:
 
                 #Set previous position for comparion to new position along axis
                 #determined by optimization
-                s[ID%3].pos1 = s[ID%3].pos2
+                s[ID_i].pos1 = s[ID_i].pos2
 
                 #Current axis was not optimized (individually)
-                sg.popup(str(s[ID%3].name + " fails - resetting all axes"))
+                sg.popup(str(s[ID_i].name + " fails - resetting all axes"))
 
                 #Reset all axes to non-optimized state
                 s[0].status = s[1].status = s[2].status = False
 
             #Increment index to optimize next stage (round robin order)
             ID += 1
-
-        #Check if termination occurence does not correspond to switching scan types
-        if coarseScan:
-
-            if s[ID%3].posCur <=0 or s[ID%3].posCur >= 857600:  ### COLE
-
-                #stops the thread, as scan is complete
-                stop_thread = True
-                UI_thread.join()
-
-                #Display Realignment message to user
-                print("Stage limit reached - manual Realignment required")
-                return 0
-
-                #Display paremeter selection message to user
-                print("Not converging to position - Change parameter choice")
-                return 0
 
     def win_fine_scan(self, s):
         """
@@ -562,31 +543,32 @@ class AlignmentUI:
 
 def main():
     UI = AlignmentUI()
-    UI.win_init()
-
-    #Serial numbers for x, y, z translation stages (to be set based on recieved
-    #stages)
-    serX =
-    serY =
-    serZ =
-
-    # Initialize list to store actuator/stage instances
-    s = []
-
-    #Configure stages and store in list for access
-    stageX = Thorlabs.KinesisMotor(serX)
-    s.append(stageX)
-
-    stageY = Thorlabs.KinesisMotor(serY)
-    s.append(stageY)
-
-    stageZ = Thorlabs.KinesisMotor(serZ)
-    s.append(stageZ)
 
     # The loop is here so that the user can choose to realign without
     #  resetting the entire program
     aligning = True
     while aligning:
+        UI.win_init()
+
+        #Serial numbers for x, y, z translation stages (to be set based on recieved
+        #stages)
+        # serX = 0
+        # serY = 0
+        # serZ = 0
+
+        # # Initialize list to store actuator/stage instances
+        s = []
+
+        # #Configure stages and store in list for access
+        # stageX = Thorlabs.KinesisMotor(serX)
+        # s.append(stageX)
+
+        # stageY = Thorlabs.KinesisMotor(serY)
+        # s.append(stageY)
+
+        # stageZ = Thorlabs.KinesisMotor(serZ)
+        # s.append(stageZ)
+
         #Ensure that all stages are centred prior to alignment
         for stage in s:
             stage._move_to(UI.centPos)

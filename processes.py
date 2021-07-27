@@ -93,7 +93,7 @@ def spiralTrnslt(ID, step, limit, pstvDir, percent, percentInc, current,
 
 #Returns true if coarse alignment process was uninterupted and false otherwise
 
-def optimizeC(ID, stepC, threshFact, limit):
+def optimizeC(ID, stepC, threshFact, limit, s):
 
     #Initialize variables to store current signal reading (at given position),
     #maximum signal level for specific optimization, new optimized position,
