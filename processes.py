@@ -1,7 +1,7 @@
 #Useful alignment processes and subprocesses called from alignment.py
 
 from pydmm.pydmm import read_dmm
-import math
+#import math
 
 #_______________________________________________________________________________
 
@@ -11,7 +11,8 @@ import math
 #Returns dark current
 def calibrate():
 
-    #Dark current measured with shutter closed (no light on DUT)
+    #Dark current measured with shutter closed (no light on DUT 
+    #(device under test))
     input("Close shutter/block laser - press enter once complete")
 
     #Will be changed to source meter (placeholder for now)

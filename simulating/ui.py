@@ -6,70 +6,21 @@ import PySimpleGUI as sg
 import sys
 import math
 import threading
-import processes
+from processes import *
 
 
 def IButton(*args, **kwargs):
     return sg.Col([[sg.Button(*args, **kwargs)]], pad=(0,0))
 
 
-# temp
-# def check(current, caliFact):
-#     read = read_dmm()
-
-#     if(read/current>=caliFact):
-#         return True
-#     else:
-#         return False
-
-# temp
-# def read_dmm():
-#     return 1
-
-# temp
-# def spiralTrnslt(ID, step, limit, pstvDir, percent, percentInc, current,
-#                  sigFact):
-
-#     # conversion from step size (um) to encoder counts
-#     step_conversion = 34.304
-
-#     #Checks if direction movement along current axis is positive
-#     if not pstvDir:
-
-#         #Sets mode to increment or decrement
-#         step *= -1
-
-#     #Takes number of coarse steps based on cycle count
-#     for stepNum in range(1, limit+1):
-
-#         #Checks if sufficient signal is found to begin multi-axis alignment
-#         if check(current, sigFact):
-#             return True
-
-#         #Take coarse step
-#         s[ID%2]._move_by(step*step_conversion)
-
-#         #Increment/decrement position for current stage based on coarse step
-#         #and direction
-#         s[ID%2].posCur += step*step_conversion
-
-#         #Increment percent of area scanned
-#         percent += percentInc
-
-#         print("Scanning area traversed:" + str(percent) + "%")
-
-#     #Percentage of scanning area covered
-#     return percent
-
-
 class AlignmentUI:
-    def __init__(self, dim=24.984, minRes=0.05):
+    def __init__(self, dim=24.984, max_pos=857600, minRes=0.05):
         # the scan area is 24.984 because of motor movement hysteresis
         self.dim = dim  # mm
+        # maximum number of encodings across an axis
+        self.max_pos = max_pos # encoder counts
         self.minRes = minRes  # um
 
-        # maximum number of encodings across an axis
-        self.max_pos = 857600
 
         # half of the max encoding
         self.centPos = self.max_pos/2  # encoder counts
@@ -175,7 +126,7 @@ Noise exceedance factor: Factor to compare device dark current to\
 
         window.close()
 
-    def win_manual_alignment(self):
+    def win_manual_alignment(self, s):
         """
         Prompt user to manually align stage until they are satisfied
         """
@@ -202,6 +153,8 @@ Noise exceedance factor: Factor to compare device dark current to\
         # Initialize the new window. Include keyboard events to detect key press
         window = sg.Window("SPAD Alignment", layout, return_keyboard_events=True)
 
+        s[0].posCur = self.centPos
+        s[1].posCur = self.centPos
         # Event loop
         while True:
             # Get the events and input values
@@ -220,7 +173,7 @@ Noise exceedance factor: Factor to compare device dark current to\
 
                 #to start calibrating
                 if txt_i == 2:
-                    self.darkCur = read_dmm()  ###!!! ENABLE
+                    self.darkCur = read_dmm(s[0].posCur, s[1].posCur)
 
                     # display the dark current
                     window["-DIALOGUE-"](calibrate_txt2 + str(self.darkCur))
@@ -333,7 +286,7 @@ Noise exceedance factor: Factor to compare device dark current to\
 
         #Checks if sufficient signal to begin multi-axis alignment was not found
         #(during last half cycle) and (at endpoint of scan)
-        if not temp_percent and not check(self.darkcur, self.sigFact):
+        if not temp_percent and not check(self.darkcur, self.sigFact, s):
             #alert for user
             sg.popup("Could not locate signal: Realignment required",
                      title="Warning")
@@ -540,7 +493,7 @@ Noise exceedance factor: Factor to compare device dark current to\
             #Informs user of the current axis being optimized
             window["-OPTIMIZE-"](optimize_text%(str(s[ID].name)))
 
-            optimizeF(ID, step, self.threshFact, self.minRes)
+            optimizeF(ID, step, self.threshFact, self.minRes, s)
 
         sg.popup("Alignment process successfully completed")
 
@@ -563,9 +516,28 @@ Noise exceedance factor: Factor to compare device dark current to\
     #           window.close()
     #           sys.exit()  # closes the entire application
 
+class TestKinesisMotor:
+    def __init__(self, serial):
+        self.ser = serial
+        self.name = ""
+        #position before optimization
+        self.pos1 = 0
+        #position of the optimization
+        self.pos2 = 0
+        #current postion
+        self.posCur = 0
+        self.posEdge1 = 0
+        self.posEdge2 = 0
+
+    def _move_by(self, step):
+        self.posCur += step
+
+    def _move_to(self, location):
+        self.posCur = location
+
 
 def main():
-    UI = AlignmentUI()
+    UI = AlignmentUI(max_pos=1000, minRes=1)
 
     # The loop is here so that the user can choose to realign without
     #  resetting the entire program
@@ -575,22 +547,22 @@ def main():
 
         #Serial numbers for x, y, z translation stages (to be set based on recieved
         # #stages)
-        # serX = 0
-        # serY = 0
-        # serZ = 0
+        serX = 0
+        serY = 0
+        serZ = 0
 
         # # # Initialize list to store actuator/stage instances
-        # s = []
+        s = []
 
         # #Configure stages and store in list for access
-        # stageX = Thorlabs.KinesisMotor(serX)
-        # s.append(stageX)
+        stageX = Thorlabs.KinesisMotor(serX)
+        s.append(stageX)
 
         # stageY = Thorlabs.KinesisMotor(serY)
-        # s.append(stageY)
+        s.append(stageY)
 
         # stageZ = Thorlabs.KinesisMotor(serZ)
-        # s.append(stageZ)
+        s.append(stageZ)
 
         #Ensure that all stages are centred prior to alignment
         for stage in s:
@@ -600,7 +572,7 @@ def main():
         #end entire process
         while True:
             # if False, redo alignment
-            if UI.win_manual_alignment():
+            if UI.win_manual_alignment(s):
                 break
 
         # Start the planar scan
@@ -608,13 +580,15 @@ def main():
             # if scan fails, go back to manual alignment
             continue
 
-        # Start the Multi-Axis scan (Coarse Scan)
-        if not UI.win_multi_axis_scan(s):
-            # if scan fails, go back to manual alignment
-            continue
+        # # Start the Multi-Axis scan (Coarse Scan)
+        # if not UI.win_multi_axis_scan(s):
+        #     # if scan fails, go back to manual alignment
+        #     continue
 
     # Proceed with Multi-Axis Scan (fine optimization)
     UI.win_fine_scan(s)
+
+    print(s[0].posCur, s[1].posCur)
 
 
 #complete
