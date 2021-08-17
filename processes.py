@@ -55,6 +55,9 @@ def check(current, caliFact):
 def spiralTrnslt(ID, step, limit, pstvDir, percent, percentInc, current,
                  sigFact):
 
+    # conversion from step size (um) to encoder counts
+    step_conversion = 34.304
+
     #Checks if direction movement along current axis is positive
     if not pstvDir:
 
@@ -69,11 +72,11 @@ def spiralTrnslt(ID, step, limit, pstvDir, percent, percentInc, current,
             return True
 
         #Take coarse step
-        s[ID%2]._move_by(step*34.304)
+        s[ID%2]._move_by(step*step_conversion)
 
         #Increment/decrement position for current stage based on coarse step
         #and direction
-        s[ID%2].posCur += step*34.304
+        s[ID%2].posCur += step*step_conversion
 
         #Increment percent of area scanned
         percent += percentInc
@@ -85,20 +88,20 @@ def spiralTrnslt(ID, step, limit, pstvDir, percent, percentInc, current,
 
 #_______________________________________________________________________________
 
-#Perform single-axis coarse optimization/alignment with DUT
+#Perform single-axis coarse optimization/alignment with DUT (device under test)
 
 #Parameters: Index of stage to be translated,coarse step size,threshold
 #factor to define appropriate decline in photocurrent during alignment, step
 #count limit
 
 #Returns true if coarse alignment process was uninterupted and false otherwise
-
+# coarse alignment
 def optimizeC(ID, stepC, threshFact, limit, s):
 
     #Initialize variables to store current signal reading (at given position),
     #maximum signal level for specific optimization, new optimized position,
     #and edge points beyond which signal intensity is <= 90% of its maximum
-    val = max = pos2 = posEdge1 = posEdge2 = 0
+    val = max_val = pos2 = posEdge1 = posEdge2 = 0
 
     #Initialize variables that define whether previous maximum should be
     #updated, whether the current direction is forward, and if the first edge
@@ -129,7 +132,7 @@ def optimizeC(ID, stepC, threshFact, limit, s):
             #Reads and stores value of signal intensity
             val = read_dmm()
 
-        if val > max or not updateMax:
+        if val > max_val or not updateMax:
 
             #Stores current position and signal reading in temporary list
             ltemp[0] = s[ID%3].posCur
@@ -186,7 +189,7 @@ def optimizeC(ID, stepC, threshFact, limit, s):
             if updateMax:
 
                 #Updates maximum value
-                max = val
+                max_val = val
 
             #Previous maximum cannot be updated
             else:
@@ -195,13 +198,13 @@ def optimizeC(ID, stepC, threshFact, limit, s):
 
         #Checks if new signal reading is below or equal to a percentage of the
         #maximum reading found so far
-        elif val <= max*threshFact:
+        elif val <= max_val *threshFact:
 
             #Checks if the current scan direction is forwards
             if forward:
 
                 #Sets positive boundary to current position
-                posEdge1 =  s[ID%3].posCur
+                posEdge1 = s[ID%3].posCur
 
                 #updates current position
                 s[ID%3].posCur = s[ID%3].pos1-stepC*34.304
@@ -236,7 +239,7 @@ def optimizeC(ID, stepC, threshFact, limit, s):
             updateMax = False
 
         #Increment step count
-        step+=1
+        steps += 1
 
     #Checks if loop termination resulted from exceeding iteration limit
     if not edgeFind:
@@ -252,7 +255,7 @@ def optimizeC(ID, stepC, threshFact, limit, s):
         #positve boundary
         for index in range(len(l1)):
 
-            if l1[index][1] <= max*threshFact:
+            if l1[index][1] <= max_val *threshFact:
 
                 posEdge1 = l1[index][0]
 
@@ -267,7 +270,7 @@ def optimizeC(ID, stepC, threshFact, limit, s):
             #positve boundary
             for index in range(0, len(l2)):
 
-                if l2[index][1] <= max*threshFact:
+                if l2[index][1] <= max_val *threshFact:
 
                     posEdge1 = l2[index][0]
 
@@ -292,8 +295,8 @@ def optimizeC(ID, stepC, threshFact, limit, s):
 #factor to define appropriate decline in photocurrent during alignment, minimum
 #actuator resolution
 #No return
-
-def optimizeF(ID, stepC, threshFact, minRes):
+# fine alignment
+def optimizeF(ID, stepC, threshFact, minRes, s):
 
     #Initialize variables to store current signal reading (at given position),
     #positve boundary, and negative boundary
@@ -308,7 +311,7 @@ def optimizeF(ID, stepC, threshFact, minRes):
     print("Optimizing " + str(s[ID].name))
 
     #Stores signal intensity reading at beginning position of fine scan
-    max = read_dmm()
+    max_val = read_dmm()
 
     #Moves to single coarse step from beginning position in positive direction
     s[ID]._move_by(stepC*34.304)
@@ -338,7 +341,7 @@ def optimizeF(ID, stepC, threshFact, minRes):
 
             #Checks if signal level is less than or equal to a percentage of
             #the signal level at the starting position of the fine optimization
-            if val <= max*threshdrop:
+            if val <= max_val *threshFact:
 
                 #Take step according to new step size
                 s[ID]._move_by(num*stepTemp*34.304)
@@ -379,10 +382,10 @@ def optimizeF(ID, stepC, threshFact, minRes):
             s[ID]._move_to(s[ID].pos1-stepC*34.304)
 
             #Reset temporary step size to coarse step size
-            stepTemp = step
+            stepTemp = stepC
 
             #Change incrementation/decrementation mode
-            num  = 1
+            num = 1
 
     #Sets fine optimized position along axis to average of boundary positions
     #(must be centered)
